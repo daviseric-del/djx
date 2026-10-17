@@ -1,0 +1,17 @@
+# Personal library data
+data/
+playlists/
+favorites.csv
+*.nosync
+
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+dist/
+
+# macOS
+.DS_Store
+
+# Private notes
+HANDOFF.md

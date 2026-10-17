@@ -14,8 +14,8 @@ from djx import config
 COLUMNS = [
     "persistentID", "name", "artist", "album", "genre", "year", "duration",
     "playedCount", "dateAdded", "favorite",
-    "bpm", "key", "camelot", "bpm_source",
-    "tempo_feel", "energy", "texture", "theme", "intro", "outro", "confidence",
+    "bpm", "key", "camelot", "bpm_source", "key_source",
+    "tempo_feel", "energy", "texture", "theme", "intro", "outro", "confidence", "tag_source",
     "notes",
 ]
 

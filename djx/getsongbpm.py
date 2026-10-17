@@ -22,15 +22,18 @@ class ApiError(RuntimeError):
 
 
 class Client:
+    name = "GetSongBPM"
+    cache_path = config.BPM_CACHE
+
     def __init__(self, api_key: str):
         self.api_key = api_key
         self._last = 0.0
         self.requests = 0
-        self.cache = json.loads(config.BPM_CACHE.read_text()) if config.BPM_CACHE.exists() else {}
+        self.cache = json.loads(self.cache_path.read_text()) if self.cache_path.exists() else {}
 
     def save(self) -> None:
         config.ensure_dirs()
-        config.BPM_CACHE.write_text(json.dumps(self.cache, indent=1, sort_keys=True))
+        self.cache_path.write_text(json.dumps(self.cache, indent=1, sort_keys=True))
 
     def _get(self, path: str, params: dict) -> dict:
         wait = MIN_INTERVAL - (time.monotonic() - self._last)
@@ -46,10 +49,10 @@ class Client:
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", "replace")[:200]
             if e.code == 401:
-                raise ApiError(f"GetSongBPM rejected the key: {body}") from e
+                raise ApiError(f"{self.name} rejected the key: {body}") from e
             if e.code == 429:
-                raise ApiError("GetSongBPM rate limit hit; the key is blocked for an hour.") from e
-            raise ApiError(f"GetSongBPM HTTP {e.code}: {body}") from e
+                raise ApiError(f"{self.name} rate limit hit; the key is blocked for an hour.") from e
+            raise ApiError(f"{self.name} HTTP {e.code}: {body}") from e
 
     def _search(self, type_: str, lookup: str) -> list[dict]:
         data = self._get("/search/", {"type": type_, "lookup": lookup, "limit": 15})

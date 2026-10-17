@@ -33,14 +33,38 @@ def tempo_ratio(a: float, b: float) -> float:
     return min(abs(b * m - a) / a for m in (0.5, 1.0, 2.0))
 
 
+FEEL = {"slow": 0, "mid": 1, "up": 2}
+GUESS_WEIGHT = 0.4  # how much a low-confidence energy or tempo feel counts
+
+
+def guessed(t: dict) -> bool:
+    """Low-confidence tags are educated guesses, not knowledge of the track."""
+    return t.get("confidence") == "low"
+
+
+def _w(*tracks: dict) -> float:
+    return GUESS_WEIGHT if any(guessed(t) for t in tracks) else 1.0
+
+
+def _g(*tracks: dict) -> str:
+    return " (guessed)" if any(guessed(t) for t in tracks) else ""
+
+
 def transition(a: dict, b: dict, pos: float) -> tuple[float, str]:
     cost, why = 0.0, []
 
     ba, bb = _f(a.get("bpm")), _f(b.get("bpm"))
+    fa, fb = FEEL.get(a.get("tempo_feel", "")), FEEL.get(b.get("tempo_feel", ""))
     if ba and bb:
         r = tempo_ratio(ba, bb)
         cost += max(0.0, r - 0.06) * 20
         why.append(f"{ba:.0f}→{bb:.0f} BPM" + (" (half/double time)" if abs(bb - ba) / ba > 0.3 and r < 0.06 else ""))
+    elif fa is not None and fb is not None:
+        # No BPM on one side: fall back to tempo feel. A feel derived from a real
+        # BPM isn't a guess even on a low-confidence track.
+        g = [t for t in (a, b) if not t.get("bpm")]
+        cost += abs(fa - fb) * 0.8 * _w(*g) + 0.25
+        why.append(f"feel {a['tempo_feel']}→{b['tempo_feel']}{_g(*g)}")
     else:
         cost += 0.5
         why.append("tempo unknown")
@@ -52,10 +76,13 @@ def transition(a: dict, b: dict, pos: float) -> tuple[float, str]:
 
     ea, eb = _f(a.get("energy")), _f(b.get("energy"))
     if eb is not None:
-        cost += abs(eb - target_energy(pos)) * 0.8
+        # A guessed energy can't satisfy or violate the curve as strongly, so pull
+        # its cost toward the 0.5 charged for an unknown energy.
+        wb = _w(b)
+        cost += abs(eb - target_energy(pos)) * 0.8 * wb + 0.5 * (1 - wb)
         if ea is not None:
-            cost += max(0.0, abs(eb - ea) - 1) * 0.7
-            why.append(f"energy {ea:.0f}→{eb:.0f}")
+            cost += max(0.0, abs(eb - ea) - 1) * 0.7 * _w(a, b)
+            why.append(f"energy {ea:.0f}→{eb:.0f}{_g(a, b)}")
     else:
         cost += 0.5
 
@@ -86,8 +113,8 @@ def build(pool: list[dict], minutes: float) -> list[dict]:
         return []
     total = minutes * 60
 
-    # Open on the lowest-energy track we know about, else the first.
-    first = min(pool, key=lambda t: _f(t.get("energy")) or 3.0)
+    # Open on the lowest-energy track we actually know about, else the first.
+    first = min(pool, key=lambda t: 3.0 if guessed(t) else (_f(t.get("energy")) or 3.0))
     out = [{"track": first, "reason": "opener: lowest energy in the pool"}]
     used = {first["persistentID"]}
     elapsed = _f(first.get("duration")) or 0

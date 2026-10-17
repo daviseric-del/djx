@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Turn Apple Music favorites into sequenced playlists"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["anthropic>=1.0"]
 
 [project.scripts]
 djx = "djx.cli:main"

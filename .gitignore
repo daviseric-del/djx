@@ -15,3 +15,6 @@ dist/
 
 # Private notes
 HANDOFF.md
+
+# Run logs
+*.log
